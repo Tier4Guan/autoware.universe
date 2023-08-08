@@ -37,6 +37,20 @@
 #include <memory>
 #include <vector>
 
+namespace
+{
+rclcpp::SubscriptionOptions createSubscriptionOptions(rclcpp::Node * node_ptr)
+{
+  rclcpp::CallbackGroup::SharedPtr callback_group =
+    node_ptr->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
+
+  auto sub_opt = rclcpp::SubscriptionOptions();
+  sub_opt.callback_group = callback_group;
+
+  return sub_opt;
+}
+}  // namespace
+
 // Converting PathWitLaneID to Path
 namespace behavior_msg_converter
 {
@@ -58,8 +72,8 @@ autoware_auto_planning_msgs::msg::Path to_path(
 BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & node_options)
 : Node("behavior_msg_converter_node", node_options),
   tf_buffer_(this->get_clock()),
-  tf_listener_(tf_buffer_),
-  planner_data_(*this)
+  tf_listener_(tf_buffer_)
+  //planner_data_(*this)
 {
   using std::placeholders::_1;
   // Trigger Subscriber
@@ -73,7 +87,7 @@ BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & n
 }
 
 // Callback
-void BehaviorVelocityPlannerNode::onTrigger(
+void BehaviorMsgConverterNode::onTrigger(
   const autoware_auto_planning_msgs::msg::PathWithLaneId::ConstSharedPtr input_path_msg)
 {
   if (input_path_msg->points.empty()) {
@@ -81,20 +95,20 @@ void BehaviorVelocityPlannerNode::onTrigger(
   }
 
   const autoware_auto_planning_msgs::msg::Path output_path_msg =
-    generatePath(input_path_msg, planner_data_);
+    generatePath(input_path_msg);
+    //generatePath(input_path_msg, planner_data_);
 
   path_pub_->publish(output_path_msg);
 }
 
-autoware_auto_planning_msgs::msg::Path BehaviorVelocityPlannerNode::generatePath(
-  const autoware_auto_planning_msgs::msg::PathWithLaneId::ConstSharedPtr input_path_msg,
-  const PlannerData & planner_data)
+autoware_auto_planning_msgs::msg::Path BehaviorMsgConverterNode::generatePath(
+  const autoware_auto_planning_msgs::msg::PathWithLaneId::ConstSharedPtr input_path_msg)
+  //const PlannerData & planner_data
 {
   autoware_auto_planning_msgs::msg::Path output_path_msg;
 
   // Copied from behavior velocity planner.  Remember to fix this along with behavior velocity
   // planner.
-  // TODO(someone): This must be updated in each scene module, but copy from input message for now.
   output_path_msg = to_path(*input_path_msg);
   output_path_msg.header.frame_id = "map";
   output_path_msg.header.stamp = this->now();
