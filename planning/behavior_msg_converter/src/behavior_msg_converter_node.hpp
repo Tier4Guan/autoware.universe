@@ -15,19 +15,19 @@
 #ifndef BEHAVIOR_MSG_CONVERTER_NODE_HPP_
 #define BEHAVIOR_MSG_CONVERTER_NODE_HPP_
 
-//#include <behavior_velocity_planner_common/planner_data.hpp>
+// #include <behavior_velocity_planner_common/planner_data.hpp>
 #include <behavior_velocity_planner_common/plugin_interface.hpp>
 #include <behavior_velocity_planner_common/plugin_wrapper.hpp>
 #include <pluginlib/class_loader.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-//#include <autoware_auto_mapping_msgs/msg/had_map_bin.hpp>
-//#include <autoware_auto_perception_msgs/msg/predicted_objects.hpp>
+// #include <autoware_auto_mapping_msgs/msg/had_map_bin.hpp>
+// #include <autoware_auto_perception_msgs/msg/predicted_objects.hpp>
 #include <autoware_auto_planning_msgs/msg/path.hpp>
 #include <autoware_auto_planning_msgs/msg/path_with_lane_id.hpp>
+#include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <nav_msgs/msg/odometry.hpp>
-#include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <tier4_api_msgs/msg/crosswalk_status.hpp>
 #include <tier4_api_msgs/msg/intersection_status.hpp>
@@ -67,12 +67,12 @@ private:
   rclcpp::Publisher<autoware_auto_planning_msgs::msg::Path>::SharedPtr path_pub_;
 
   // member
-  //PlannerData planner_data_;
+  // PlannerData planner_data_;
 
   // function
   autoware_auto_planning_msgs::msg::Path generatePath(
     const autoware_auto_planning_msgs::msg::PathWithLaneId::ConstSharedPtr input_path_msg);
-    //const PlannerData & planner_data);
+  // const PlannerData & planner_data);
 };
 }  // namespace behavior_msg_converter
 

@@ -36,6 +36,7 @@
 #include <functional>
 #include <memory>
 #include <vector>
+#include <string>
 
 namespace
 {
@@ -73,7 +74,7 @@ BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & n
 : Node("behavior_msg_converter_node", node_options),
   tf_buffer_(this->get_clock()),
   tf_listener_(tf_buffer_)
-  //planner_data_(*this)
+// planner_data_(*this)
 {
   using std::placeholders::_1;
   // Trigger Subscriber
@@ -94,16 +95,15 @@ void BehaviorMsgConverterNode::onTrigger(
     return;
   }
 
-  const autoware_auto_planning_msgs::msg::Path output_path_msg =
-    generatePath(input_path_msg);
-    //generatePath(input_path_msg, planner_data_);
+  const autoware_auto_planning_msgs::msg::Path output_path_msg = generatePath(input_path_msg);
+  // generatePath(input_path_msg, planner_data_);
 
   path_pub_->publish(output_path_msg);
 }
 
 autoware_auto_planning_msgs::msg::Path BehaviorMsgConverterNode::generatePath(
   const autoware_auto_planning_msgs::msg::PathWithLaneId::ConstSharedPtr input_path_msg)
-  //const PlannerData & planner_data
+// const PlannerData & planner_data
 {
   autoware_auto_planning_msgs::msg::Path output_path_msg;
 
@@ -115,6 +115,8 @@ autoware_auto_planning_msgs::msg::Path BehaviorMsgConverterNode::generatePath(
   output_path_msg.left_bound = input_path_msg->left_bound;
   output_path_msg.right_bound = input_path_msg->right_bound;
   return output_path_msg;
+  
+  RCLCPP_INFO(this->get_logger(), "Publishing");
 }
 }  // namespace behavior_msg_converter
 
