@@ -35,8 +35,8 @@
 
 #include <functional>
 #include <memory>
-#include <vector>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -115,7 +115,7 @@ autoware_auto_planning_msgs::msg::Path BehaviorMsgConverterNode::generatePath(
   output_path_msg.left_bound = input_path_msg->left_bound;
   output_path_msg.right_bound = input_path_msg->right_bound;
   return output_path_msg;
-  
+
   RCLCPP_INFO(this->get_logger(), "Publishing");
 }
 }  // namespace behavior_msg_converter
