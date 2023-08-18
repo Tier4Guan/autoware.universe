@@ -13,4 +13,6 @@ rclcpp_components_register_node(behavior_msg_converter_node
   EXECUTABLE behavior_msg_converter
 )
 
-ament_auto_package(INSTALL_TO_SHARE)
+ament_auto_package(INSTALL_TO_SHARE
+  launch
+)
