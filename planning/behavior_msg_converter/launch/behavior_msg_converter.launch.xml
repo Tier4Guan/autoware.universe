@@ -1,0 +1,13 @@
+<launch>
+
+  <!-- input/output -->
+  <arg name="path_with_lane_id" default="/planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id"/>
+  <arg name="path" default="/planning/scenario_planning/lane_driving/behavior_planning/path"/>
+  
+  <node pkg="behavior_msg_converter" exec="behavior_msg_converter_node" name="behavior_msg_converter" output="screen">
+
+    <remap from="~/input/path_with_lane_id" to="path_with_lane_id"/>
+    <remap from="~/output/path" to="path"/>
+
+  </node>
+</launch>

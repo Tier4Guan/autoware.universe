@@ -80,11 +80,13 @@ BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & n
   // Trigger Subscriber
   trigger_sub_path_with_lane_id_ =
     this->create_subscription<autoware_auto_planning_msgs::msg::PathWithLaneId>(
-      "~/input/path_with_lane_id", 1, std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1),
+      //"~/input/path_with_lane_id", 1, std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1),
+      "/planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id", 1, std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1),
       createSubscriptionOptions(this));
 
   // Publishers
-  path_pub_ = this->create_publisher<autoware_auto_planning_msgs::msg::Path>("~/output/path", 1);
+  //path_pub_ = this->create_publisher<autoware_auto_planning_msgs::msg::Path>("~/output/path", 1);
+  path_pub_ = this->create_publisher<autoware_auto_planning_msgs::msg::Path>("/planning/scenario_planning/lane_driving/behavior_planning/path", 1);
 }
 
 // Callback
@@ -119,6 +121,7 @@ autoware_auto_planning_msgs::msg::Path BehaviorMsgConverterNode::generatePath(
   RCLCPP_INFO(this->get_logger(), "Publishing");
 }
 }  // namespace behavior_msg_converter
+
 
 #include <rclcpp_components/register_node_macro.hpp>
 RCLCPP_COMPONENTS_REGISTER_NODE(behavior_msg_converter::BehaviorMsgConverterNode)
