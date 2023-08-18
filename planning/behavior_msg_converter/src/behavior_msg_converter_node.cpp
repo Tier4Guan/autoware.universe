@@ -82,8 +82,7 @@ BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & n
     this->create_subscription<autoware_auto_planning_msgs::msg::PathWithLaneId>(
       // "~/input/path_with_lane_id", 1, std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1),
       "/planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id", 1,
-      std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1),
-      createSubscriptionOptions(this));
+      std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1), createSubscriptionOptions(this));
 
   // Publishers
   // path_pub_ = this->create_publisher<autoware_auto_planning_msgs::msg::Path>("~/output/path", 1);
