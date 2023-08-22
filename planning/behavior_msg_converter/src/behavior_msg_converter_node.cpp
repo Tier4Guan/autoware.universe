@@ -74,23 +74,53 @@ BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & n
 : Node("behavior_msg_converter_node", node_options),
   tf_buffer_(this->get_clock()),
   tf_listener_(tf_buffer_)
-// planner_data_(*this)
 {
   using std::placeholders::_1;
-  // Trigger Subscriber
+  
+  //Subscriber
+  route_sub_ = this->create_subscription<autoware_planning_msgs::msg::LaneletRoute>(
+      "/planning/mission_planning/route", 1,
+      std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1), createSubscriptionOptions(this));
   trigger_sub_path_with_lane_id_ =
     this->create_subscription<autoware_auto_planning_msgs::msg::PathWithLaneId>(
-      // "~/input/path_with_lane_id", 1, std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1),
       "/planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id", 1,
       std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1), createSubscriptionOptions(this));
 
+
   // Publishers
-  // path_pub_ = this->create_publisher<autoware_auto_planning_msgs::msg::Path>("~/output/path", 1);
-  path_pub_ = this->create_publisher<autoware_auto_planning_msgs::msg::Path>(
+    pathwithlaneid_pub_ = this->create_publisher<autoware_auto_planning_msgs::msg::PathWithLaneId>(
+    "/planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id", 1);
+    path_pub_ = this->create_publisher<autoware_auto_planning_msgs::msg::Path>(
     "/planning/scenario_planning/lane_driving/behavior_planning/path", 1);
 }
 
+
 // Callback
+
+// Converting Route to PathWithLaneID
+void BehaviorMsgConverterNode::onTrigger(
+  const autoware_planning_msgs::msg::LaneletRoute::ConstSharedPtr input_route_msg)
+{
+  if (input_route_msg->points.empty()) {
+    return;
+  }
+
+  const autoware_auto_planning_msgs::msg::Path output_pathwithlaneid_msg = generatePathWithLaneID(input_route_msg);
+
+  pathwithlaneid_pub_->publish(output_pathwithlaneid_msg);
+}
+
+autoware_auto_planning_msgs::msg::PathWithLaneId BehaviorMsgConverterNode::generatePathWithLaneID(
+  const autoware_planning_msgs::msg::LaneletRoute::ConstSharedPtr input_route_msg)
+{
+  autoware_auto_planning_msgs::msg::Path output_pathwithlaneid_msg;
+  
+  //remain to be created.
+  
+}
+
+
+// Converting PathWithLaneID to Path
 void BehaviorMsgConverterNode::onTrigger(
   const autoware_auto_planning_msgs::msg::PathWithLaneId::ConstSharedPtr input_path_msg)
 {
@@ -99,19 +129,15 @@ void BehaviorMsgConverterNode::onTrigger(
   }
 
   const autoware_auto_planning_msgs::msg::Path output_path_msg = generatePath(input_path_msg);
-  // generatePath(input_path_msg, planner_data_);
 
   path_pub_->publish(output_path_msg);
 }
 
 autoware_auto_planning_msgs::msg::Path BehaviorMsgConverterNode::generatePath(
   const autoware_auto_planning_msgs::msg::PathWithLaneId::ConstSharedPtr input_path_msg)
-// const PlannerData & planner_data
 {
   autoware_auto_planning_msgs::msg::Path output_path_msg;
 
-  // Copied from behavior velocity planner.  Remember to fix this along with behavior velocity
-  // planner.
   output_path_msg = to_path(*input_path_msg);
   output_path_msg.header.frame_id = "map";
   output_path_msg.header.stamp = this->now();
