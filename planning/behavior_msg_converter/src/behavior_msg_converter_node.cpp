@@ -19,6 +19,7 @@
 #include <behavior_velocity_planner_common/utilization/path_utilization.hpp>
 #include <lanelet2_extension/utility/message_conversion.hpp>
 #include <tier4_autoware_utils/ros/wait_for_param.hpp>
+#include <behavior_path_planner/include/behavior_path_planner/planner_manager.hpp>
 
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -69,6 +70,7 @@ autoware_auto_planning_msgs::msg::Path to_path(
 }
 }  // namespace
 
+
 // Subscriber and publisher
 BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & node_options)
 : Node("behavior_msg_converter_node", node_options),
@@ -76,48 +78,66 @@ BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & n
   tf_listener_(tf_buffer_)
 {
   using std::placeholders::_1;
-  
-  //Subscriber
+
+  // data_manager
+  {
+    planner_data_ = std::make_shared<PlannerData>();
+    planner_data_->parameters = getCommonParam();
+    planner_data_->drivable_area_expansion_parameters.init(*this);
+  }
+
+  // Subscriber
   route_sub_ = this->create_subscription<autoware_planning_msgs::msg::LaneletRoute>(
-      "/planning/mission_planning/route", 1,
-      std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1), createSubscriptionOptions(this));
+    "/planning/mission_planning/route", 1,
+    std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1), createSubscriptionOptions(this));
   trigger_sub_path_with_lane_id_ =
     this->create_subscription<autoware_auto_planning_msgs::msg::PathWithLaneId>(
       "/planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id", 1,
       std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1), createSubscriptionOptions(this));
 
-
   // Publishers
-    pathwithlaneid_pub_ = this->create_publisher<autoware_auto_planning_msgs::msg::PathWithLaneId>(
+  pathwithlaneid_pub_ = this->create_publisher<autoware_auto_planning_msgs::msg::PathWithLaneId>(
     "/planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id", 1);
-    path_pub_ = this->create_publisher<autoware_auto_planning_msgs::msg::Path>(
-    "/planning/scenario_planning/lane_driving/behavior_planning/path", 1);
+  path_pub_ = create_publisher<PathWithLaneId>("/planning/scenario_planning/lane_driving/behavior_planning/path", 1);
+  
+ // route_handler
+  {
+    const auto & p = planner_data_->parameters;
+    planner_manager_ = std::make_shared<PlannerManager>(*this, p.verbose);
+  }
 }
 
 
 // Callback
 
-// Converting Route to PathWithLaneID
-void BehaviorMsgConverterNode::onTrigger(
+// Converting Route to PathWithLaneID 
+void BehaviorMsgConverterNode::run(
   const autoware_planning_msgs::msg::LaneletRoute::ConstSharedPtr input_route_msg)
 {
-  if (input_route_msg->points.empty()) {
-    return;
-  }
-
-  const autoware_auto_planning_msgs::msg::Path output_pathwithlaneid_msg = generatePathWithLaneID(input_route_msg);
-
-  pathwithlaneid_pub_->publish(output_pathwithlaneid_msg);
+  // run behavior planner
+  const auto output = planner_manager_->run(planner_data_);
+  // path handling
+  const auto path = getPath(output, planner_data_, planner_manager_);
+  // update planner data
+  planner_data_->prev_output_path = path;
 }
 
-autoware_auto_planning_msgs::msg::PathWithLaneId BehaviorMsgConverterNode::generatePathWithLaneID(
-  const autoware_planning_msgs::msg::LaneletRoute::ConstSharedPtr input_route_msg)
+PathWithLaneId::SharedPtr BehaviorMsgConverterNode::getPath(
+  const BehaviorModuleOutput & output, const std::shared_ptr<PlannerData> & planner_data,
+  const std::shared_ptr<PlannerManager> & planner_manager)
 {
-  autoware_auto_planning_msgs::msg::Path output_pathwithlaneid_msg;
-  
-  //remain to be created.
-  
+  auto path = output.path ? output.path : planner_data->prev_output_path;
+  path->header = planner_data->route_handler->getRouteHeader();
+  path->header.stamp = this->now();
+
+  PathWithLaneId connected_path;
+  const auto module_status_ptr_vec = planner_manager->getSceneModuleStatus();
+
+  const auto resampled_path = utils::resamplePathWithSpline(
+    *path, planner_data->parameters.output_path_interval, keepInputPoints(module_status_ptr_vec));
+  return std::make_shared<PathWithLaneId>(resampled_path);
 }
+
 
 
 // Converting PathWithLaneID to Path
