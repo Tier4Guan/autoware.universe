@@ -18,8 +18,8 @@
 
 #include <behavior_velocity_planner_common/utilization/path_utilization.hpp>
 #include <lanelet2_extension/utility/message_conversion.hpp>
+#include <lanelet2_extension/utility/utilities.hpp>
 #include <tier4_autoware_utils/ros/wait_for_param.hpp>
-#include <behavior_path_planner/include/behavior_path_planner/planner_manager.hpp>
 
 #include <diagnostic_msgs/msg/diagnostic_status.hpp>
 #include <visualization_msgs/msg/marker_array.hpp>
@@ -70,7 +70,6 @@ autoware_auto_planning_msgs::msg::Path to_path(
 }
 }  // namespace
 
-
 // Subscriber and publisher
 BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & node_options)
 : Node("behavior_msg_converter_node", node_options),
@@ -87,9 +86,6 @@ BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & n
   }
 
   // Subscriber
-  route_sub_ = this->create_subscription<autoware_planning_msgs::msg::LaneletRoute>(
-    "/planning/mission_planning/route", 1,
-    std::bind(&BehaviorMsgConverterNode::onTrigger, this, _1), createSubscriptionOptions(this));
   trigger_sub_path_with_lane_id_ =
     this->create_subscription<autoware_auto_planning_msgs::msg::PathWithLaneId>(
       "/planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id", 1,
@@ -98,28 +94,82 @@ BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & n
   // Publishers
   pathwithlaneid_pub_ = this->create_publisher<autoware_auto_planning_msgs::msg::PathWithLaneId>(
     "/planning/scenario_planning/lane_driving/behavior_planning/path_with_lane_id", 1);
-  path_pub_ = create_publisher<PathWithLaneId>("/planning/scenario_planning/lane_driving/behavior_planning/path", 1);
-  
- // route_handler
+  path_pub_ = create_publisher<PathWithLaneId>(
+    "/planning/scenario_planning/lane_driving/behavior_planning/path", 1);
+
+  // route_handler
+  auto qos_transient_local = rclcpp::QoS{1}.transient_local();
+  route_subscriber_ = create_subscription<LaneletRoute>(
+    "~/input/route", qos_transient_local, std::bind(&BehaviorPathPlannerNode::onRoute, this, _1),
+    createSubscriptionOptions(this));
+    
   {
     const auto & p = planner_data_->parameters;
     planner_manager_ = std::make_shared<PlannerManager>(*this, p.verbose);
   }
 }
 
-
 // Callback
 
-// Converting Route to PathWithLaneID 
-void BehaviorMsgConverterNode::run(
-  const autoware_planning_msgs::msg::LaneletRoute::ConstSharedPtr input_route_msg)
-{
-  // run behavior planner
-  const auto output = planner_manager_->run(planner_data_);
+// Converting Route to PathWithLaneID
+  // get output as Reference Path
+  lanelet::ConstLanelet closest_lane{}
+  const auto output = getReferencePath(closest_lane, planner_data_);
   // path handling
   const auto path = getPath(output, planner_data_, planner_manager_);
   // update planner data
   planner_data_->prev_output_path = path;
+
+BehaviorModuleOutput getReferencePath(
+  const lanelet::ConstLanelet & current_lane,
+  const std::shared_ptr<const PlannerData> & planner_data)
+{
+  PathWithLaneId reference_path{};
+
+  const auto & route_handler = planner_data->route_handler;
+  const auto current_pose = planner_data->self_odometry->pose.pose;
+  const auto p = planner_data->parameters;
+
+  // Set header
+  reference_path.header = route_handler->getRouteHeader();
+
+  // calculate path with backward margin to avoid end points' instability by spline interpolation
+  constexpr double extra_margin = 10.0;
+  const double backward_length = p.backward_path_length + extra_margin;
+  const auto current_lanes_with_backward_margin =
+    route_handler->getLaneletSequence(current_lane, backward_length, p.forward_path_length);
+  const auto no_shift_pose =
+    lanelet::utils::getClosestCenterPose(current_lane, current_pose.position);
+  reference_path = getCenterLinePath(
+    *route_handler, current_lanes_with_backward_margin, no_shift_pose, backward_length,
+    p.forward_path_length, p);
+
+  // clip backward length
+  // NOTE: In order to keep backward_path_length at least, resampling interval is added to the
+  // backward.
+  const size_t current_seg_idx = motion_utils::findFirstNearestIndexWithSoftConstraints(
+    reference_path.points, no_shift_pose, p.ego_nearest_dist_threshold,
+    p.ego_nearest_yaw_threshold);
+  reference_path.points = motion_utils::cropPoints(
+    reference_path.points, no_shift_pose.position, current_seg_idx, p.forward_path_length,
+    p.backward_path_length + p.input_path_interval);
+
+  const auto drivable_lanelets = getLaneletsFromPath(reference_path, route_handler);
+  const auto drivable_lanes = generateDrivableLanes(drivable_lanelets);
+
+  const auto & dp = planner_data->drivable_area_expansion_parameters;
+
+  const auto shorten_lanes = cutOverlappedLanes(reference_path, drivable_lanes);
+  const auto expanded_lanes = expandLanelets(
+    shorten_lanes, dp.drivable_area_left_bound_offset, dp.drivable_area_right_bound_offset,
+    dp.drivable_area_types_to_skip);
+
+  BehaviorModuleOutput output;
+  output.path = std::make_shared<PathWithLaneId>(reference_path);
+  output.reference_path = std::make_shared<PathWithLaneId>(reference_path);
+  output.drivable_area_info.drivable_lanes = drivable_lanes;
+
+  return output;
 }
 
 PathWithLaneId::SharedPtr BehaviorMsgConverterNode::getPath(
@@ -137,8 +187,6 @@ PathWithLaneId::SharedPtr BehaviorMsgConverterNode::getPath(
     *path, planner_data->parameters.output_path_interval, keepInputPoints(module_status_ptr_vec));
   return std::make_shared<PathWithLaneId>(resampled_path);
 }
-
-
 
 // Converting PathWithLaneID to Path
 void BehaviorMsgConverterNode::onTrigger(

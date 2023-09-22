@@ -52,19 +52,23 @@ public:
   explicit BehaviorMsgConverterNode(const rclcpp::NodeOptions & node_options);
 
 private:
-  // tf
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
-
+  
+  std::shared_ptr<PlannerData> planner_data_;
+  std::shared_ptr<PlannerManager> planner_manager_;
+  
   // subscriber
   rclcpp::Subscription<autoware_auto_planning_msgs::msg::PathWithLaneId>::SharedPtr
     trigger_sub_path_with_lane_id_;
-
+  rclcpp::Subscription<LaneletRoute>::SharedPtr route_sub_;
+  
   void onTrigger(
     const autoware_auto_planning_msgs::msg::PathWithLaneId::ConstSharedPtr input_path_msg);
 
   // publisher
   rclcpp::Publisher<autoware_auto_planning_msgs::msg::Path>::SharedPtr path_pub_;
+  rclcpp::Publisher<PathWithLaneId>::SharedPtr pathwithlaneid_pub_;
 
   // member
   // PlannerData planner_data_;
@@ -72,7 +76,15 @@ private:
   // function
   autoware_auto_planning_msgs::msg::Path generatePath(
     const autoware_auto_planning_msgs::msg::PathWithLaneId::ConstSharedPtr input_path_msg);
-  // const PlannerData & planner_data);
+   
+  BehaviorModuleOutput getReferencePath(
+    const lanelet::ConstLanelet & current_lane,
+    const std::shared_ptr<const PlannerData> & planner_data);
+  
+  PathWithLaneId::SharedPtr getPath(
+    const BehaviorModuleOutput & output, const std::shared_ptr<PlannerData> & planner_data,
+    const std::shared_ptr<PlannerManager> & planner_manager);
+  
 };
 }  // namespace behavior_msg_converter
 
