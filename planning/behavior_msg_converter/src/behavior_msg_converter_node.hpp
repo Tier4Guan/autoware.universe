@@ -161,11 +161,11 @@ public:
   // non-const methods
   void setMap(const HADMapBin & map_msg);
   void setRoute(const LaneletRoute & route_msg);
-  
+
   // for routing
   static bool isRouteLooped(const RouteSections & route_sections);
-  
-  private:
+
+private:
   // MUST
   lanelet::routing::RoutingGraphPtr routing_graph_ptr_;
   lanelet::traffic_rules::TrafficRulesPtr traffic_rules_ptr_;
@@ -183,11 +183,11 @@ public:
 
   bool is_map_msg_ready_{false};
   bool is_handler_ready_{false};
-  
+
   // non-const methods
   void setLaneletsFromRouteMsg();
-}  
-  
 }
+
+}  // namespace route_handler
 
 #endif  // BEHAVIOR_MSG_CONVERTER_NODE_HPP_

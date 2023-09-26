@@ -34,9 +34,11 @@
 #include <tf2_eigen/tf2_eigen.hpp>
 #endif
 
+#include <algorithm>
 #include <functional>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include <vector>
 
 namespace
@@ -69,7 +71,7 @@ autoware_auto_planning_msgs::msg::Path to_path(
   return path;
 }
 
-}  // namespace behavior_msg_converter
+}  // namespace
 
 namespace route_handler
 {
@@ -186,7 +188,7 @@ bool RouteHandler::isRouteLooped(const RouteSections & route_sections)
   return false;
 }
 
-}
+}  // namespace route_handler
 
 // Subscriber and publisher
 BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & node_options)
@@ -225,7 +227,7 @@ BehaviorMsgConverterNode::BehaviorMsgConverterNode(const rclcpp::NodeOptions & n
     const auto & p = planner_data_->parameters;
     planner_manager_ = std::make_shared<PlannerManager>(*this, p.verbose);
   }
-  
+
   // Start timer
   {
     const auto planning_hz = declare_parameter<double>("planning_hz");
@@ -582,8 +584,6 @@ void BehaviorMsgConverterNode::run()
 
   RCLCPP_DEBUG(get_logger(), "----- behavior path planner end -----\n\n");
 }
-
-
 
 // Converting PathWithLaneID to Path
 void BehaviorMsgConverterNode::onTrigger(
